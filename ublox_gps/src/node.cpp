@@ -114,9 +114,10 @@ void UbloxNode::addProductInterface(std::string product_category,
     components_.push_back(ComponentPtr(new HpgRefProduct));
   else if (product_category.compare("HPG") == 0 && ref_rov.compare("ROV") == 0)
     components_.push_back(ComponentPtr(new HpgRovProduct));
-  else if (product_category.compare("HPG") == 0)
+  else if (product_category.compare("HPG") == 0) {
+    components_.push_back(ComponentPtr(new HpgRovProduct));
     components_.push_back(ComponentPtr(new HpPosRecProduct));
-  else if (product_category.compare("TIM") == 0)
+  }else if (product_category.compare("TIM") == 0)
     components_.push_back(ComponentPtr(new TimProduct));
   else if (product_category.compare("ADR") == 0 ||
            product_category.compare("UDR") == 0)
@@ -1711,6 +1712,8 @@ void HpgRovProduct::callbackNavRelPosNed(const ublox_msgs::NavRELPOSNED &m) {
 //
 
 void HpPosRecProduct::subscribe() {
+  HpgRefProduct::subscribe();
+
   // Whether to publish Nav Relative Position NED
   nh->param("publish/nav/relposned", enabled["nav_relposned"], enabled["nav"]);
   // Subscribe to Nav Relative Position NED messages (also updates diagnostics)
@@ -1724,7 +1727,7 @@ void HpPosRecProduct::subscribe() {
 void HpPosRecProduct::callbackNavRelPosNed(const ublox_msgs::NavRELPOSNED9 &m) {
   if (enabled["nav_relposned"]) {
     static ros::Publisher publisher =
-        nh->advertise<ublox_msgs::NavRELPOSNED9>("navrelposned", kROSQueueSize);
+        nh->advertise<ublox_msgs::NavRELPOSNED9>("navrelposned9", kROSQueueSize);
     publisher.publish(m);
   }
 
