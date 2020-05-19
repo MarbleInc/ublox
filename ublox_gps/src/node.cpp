@@ -1525,6 +1525,8 @@ bool HpgRefProduct::configureUblox() {
     if(!gps.configRate(meas_rate_temp, (int) 1000 / meas_rate_temp))
       throw std::runtime_error(std::string("Failed to set nav rate to 1 Hz") +
                                "before setting TMODE3 to survey-in.");
+    if(!gps.configRtcm(rtcm_ids, rtcm_rates))
+      throw std::runtime_error("Failed to set RTCM rates");
     // As recommended in the documentation, first disable, then set to survey in
     if(!gps.disableTmode3())
       ROS_ERROR("Failed to disable TMODE3 before setting to survey-in.");
@@ -1555,7 +1557,7 @@ void HpgRefProduct::callbackNavSvIn(ublox_msgs::NavSVIN m) {
 
   last_nav_svin_ = m;
 
-  if(!m.active && m.valid && mode_ == SURVEY_IN) {
+  if(!m.active && !m.valid && mode_ == SURVEY_IN) {
     setTimeMode();
   }
 
