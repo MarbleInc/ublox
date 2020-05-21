@@ -120,6 +120,8 @@ class CallbackHandler_ : public CallbackHandler {
  */
 class CallbackHandlers {
  public:
+  typedef boost::function<void(const uint8_t*, uint32_t)> RtcmCallback;
+
   /**
    * @brief Add a callback handler for the given message type.
    * @param callback the callback handler for the message
@@ -151,6 +153,10 @@ class CallbackHandlers {
     callbacks_.insert(
       std::make_pair(std::make_pair(T::CLASS_ID, message_id),
                      boost::shared_ptr<CallbackHandler>(handler)));
+  }
+  
+  void setRtcmCallback(const RtcmCallback& callback) {
+    rtcm_callback_ = callback;
   }
 
   /**
@@ -203,25 +209,59 @@ class CallbackHandlers {
    * @param size the size of the buffer
    */
   void readCallback(unsigned char* data, std::size_t& size) {
+    // Iterate through the buffer looking for U-Blox or RTCM messages
     ublox::Reader reader(data, size);
-    // Read all U-Blox messages in buffer
-    while (reader.search() != reader.end() && reader.found()) {
-      if (debug >= 3) {
-        // Print the received bytes
-        std::ostringstream oss;
-        for (ublox::Reader::iterator it = reader.pos();
-             it != reader.pos() + reader.length() + 8; ++it)
-          oss << boost::format("%02x") % static_cast<unsigned int>(*it) << " ";
-        ROS_DEBUG("U-blox: reading %d bytes\n%s", reader.length() + 8, 
-                 oss.str().c_str());
+    uint32_t bytes_read = 0;
+    bool msg_header_found = false;
+    while (reader.pos() != reader.end()) {
+      uint32_t step_size = 0;
+
+      if (reader.has_header()) {
+        msg_header_found = true;
+
+        if (reader.found()) {
+          handle(reader);
+          bytes_read += reader.full_length();
+          reader.next();
+        }else {
+          step_size = 1;
+        }
+      }else {
+        step_size = 1;
+
+        uint8_t RTCM_HEADER_START = 0xD3;
+        if (rtcm_callback_ && reader.pos()[0] == RTCM_HEADER_START){
+            // This is an RTCM message
+          msg_header_found = true;
+
+          // Need to determine the size of the message to extract, structure is:
+          //   | 8 bit header | 000000 | 10 bit length | data | 24 bit parity |
+          std::bitset<10> length_bits(reader.pos()[2]);
+          std::bitset<8> b2(reader.pos()[1]);
+          length_bits[9] = b2[0];
+          length_bits[8] = b2[1];
+
+          uint32_t rtcm_size = length_bits.to_ulong() + 6;
+            
+          if (reader.count() >= rtcm_size) {
+            rtcm_callback_(reader.pos(), rtcm_size);
+
+            bytes_read += rtcm_size;
+            step_size = rtcm_size;
+          }
+        }else {
+            step_size = 1;
+        }
       }
 
-      handle(reader);
+      reader.advance(step_size);
     }
 
-    // delete read bytes from ASIO input buffer
-    std::copy(reader.pos(), reader.end(), data);
-    size -= reader.pos() - data;
+    // Delete read bytes from ASIO input buffer, when we don't recognize any
+    // messages clear the buffer
+    uint32_t del_bytes = msg_header_found ? bytes_read : size;
+    std::copy(reader.pos(), reader.pos() + del_bytes, data);
+    size -= del_bytes;
   }
 
  private:
@@ -231,6 +271,7 @@ class CallbackHandlers {
   // Call back handlers for u-blox messages
   Callbacks callbacks_;
   boost::mutex callback_mutex_;
+  RtcmCallback rtcm_callback_;
 };
 
 }  // namespace ublox_gps

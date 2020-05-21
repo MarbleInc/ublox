@@ -50,6 +50,7 @@
 #include <sensor_msgs/NavSatFix.h>
 #include <sensor_msgs/TimeReference.h>
 #include <sensor_msgs/Imu.h>
+#include <std_msgs/UInt8MultiArray.h>
 // Other U-Blox package includes
 #include <ublox_msgs/ublox_msgs.h>
 // Ublox GPS includes
@@ -809,7 +810,7 @@ class UbloxFirmware7Plus : public UbloxFirmware {
     bool fixOk = m.flags & m.FLAGS_GNSS_FIX_OK;
     if (fixOk && m.fixType >= m.FIX_TYPE_2D) {
       fix.status.status = fix.status.STATUS_FIX;
-      if(m.flags & m.CARRIER_PHASE_FIXED)
+      if(m.flags & m.FLAGS_DIFF_SOLN || m.flags & m.CARRIER_PHASE_FIXED)
         fix.status.status = fix.status.STATUS_GBAS_FIX;
     }
     else {
@@ -1199,6 +1200,12 @@ class HpgRefProduct: public virtual ComponentInterface {
    * @details Configure the RTCM messages and measurement and navigation rate.
    */
   bool setTimeMode();
+  
+  /**
+   * @brief Callback for receiving raw RTCM corrections from the device
+   * @param msg RTCM correction message bytes
+   */
+  void rtcmSerialCallback(const uint8_t* data, uint32_t size);
 
   //! The last received Nav SVIN message
   ublox_msgs::NavSVIN last_nav_svin_;
@@ -1300,6 +1307,11 @@ class HpgRovProduct: public virtual ComponentInterface {
    */
   void callbackNavRelPosNed(const ublox_msgs::NavRELPOSNED &m);
 
+  /**
+   * @brief Callback for receiving ROS messages with raw RTCM corrections
+   * @param msg RTCM correction message bytes
+   */
+  void rtcmMsgCallback(const std_msgs::UInt8MultiArray::ConstPtr& msg);
 
   //! Last relative position (used for diagnostic updater)
   ublox_msgs::NavRELPOSNED last_rel_pos_;
@@ -1310,6 +1322,9 @@ class HpgRovProduct: public virtual ComponentInterface {
 
   //! The RTCM topic frequency diagnostic updater
   UbloxTopicDiagnostic freq_rtcm_;
+
+  // Incoming RTCM corrections
+  ros::Subscriber sub_rtcm_;
 };
 
 class HpPosRecProduct: public virtual HpgRefProduct {

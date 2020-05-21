@@ -345,6 +345,12 @@ class Gps {
                    unsigned int message_id);
 
   /**
+   * @brief Subscribe to RTCM messages
+   * @param callback the callback which handles raw rtcm data
+   */
+  void subscribeRtcm(const CallbackHandlers::RtcmCallback& callback);
+
+  /**
    * Read a u-blox message of the given type.
    * @param message the received u-blox message
    * @param timeout the amount of time to wait for the desired message
@@ -352,6 +358,13 @@ class Gps {
   template <typename T>
   bool read(T& message,
             const boost::posix_time::time_duration& timeout = default_timeout_);
+
+  /**
+   * @brief Send the data in the buffer to the gps
+   * @param data the bytes to send
+   * @param size the size of the buffer
+   */
+  bool send(const unsigned char* data, const unsigned int size);
 
   bool isInitialized() const { return worker_ != 0; }
   bool isConfigured() const { return isInitialized() && configured_; }

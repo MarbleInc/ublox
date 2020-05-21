@@ -188,12 +188,20 @@ class Reader {
 
     // Search for a message header
     for( ; count_ > 0; --count_, ++data_) {
-      if (data_[0] == options_.sync_a && 
-          (count_ == 1 || data_[1] == options_.sync_b)) 
+      if (has_header()) 
         break;
     }
 
     return data_;
+  }
+
+  /**
+   * @brief Does the buffer contain the identifiers for a u-blox message?
+   * @returns true if the buffer has a u-blox header at the beginning
+   */
+  bool has_header() {
+    return data_[0] == options_.sync_a && 
+      (count_ == 1 || data_[1] == options_.sync_b);
   }
 
   /**
@@ -225,11 +233,18 @@ class Reader {
    */
   iterator next() {
     if (found()) {
-      uint32_t size = length() + options_.wrapper_length();
+      uint32_t size = full_length();
       data_ += size; count_ -= size;
     }
     found_ = false;
     return data_;
+  }
+
+  void advance(uint32_t n) {
+    if (count_ > 0) {
+      data_ += n;
+      count_ -= n;
+    }
   }
 
   /**
@@ -242,6 +257,10 @@ class Reader {
 
   iterator end() {
     return data_ + count_;
+  }
+  
+  uint32_t count() const {
+    return count_;
   }
 
   uint8_t classId() { return data_[2]; }
@@ -256,6 +275,16 @@ class Reader {
    */
   uint32_t length() { return (data_[5] << 8) + data_[4]; }
   const uint8_t *data() { return data_ + options_.header_length; }
+  
+  /**
+   * @brief Get the full length of the u-blox message.
+   *
+   * @details Includes the header, payload, and checksum length.
+   * @return the length of the full message
+   */
+  uint32_t full_length() {
+    return length() + options_.wrapper_length();
+  }
   
   /**
    * @brief Get the checksum of the u-blox message.

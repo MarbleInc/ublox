@@ -1547,6 +1547,13 @@ void HpgRefProduct::subscribe() {
   // Subscribe to Nav Survey-In
   gps.subscribe<ublox_msgs::NavSVIN>(boost::bind(
       &HpgRefProduct::callbackNavSvIn, this, _1), kSubscribeRate);
+
+  // Whether to publish raw RTCM messages
+  nh->param("publish/nav/rtcm", enabled["nav_rtcm"], enabled["nav"]);
+  if (enabled["nav_rtcm"]) {
+    gps.subscribeRtcm(boost::bind(&HpgRefProduct::rtcmSerialCallback,
+                                  this, _1, _2));
+  }
 }
 
 void HpgRefProduct::callbackNavSvIn(ublox_msgs::NavSVIN m) {
@@ -1563,6 +1570,24 @@ void HpgRefProduct::callbackNavSvIn(ublox_msgs::NavSVIN m) {
   }
 
   updater->update();
+}
+
+void HpgRefProduct::rtcmSerialCallback(const uint8_t* data, uint32_t size) {
+  std_msgs::UInt8MultiArray msg;
+  msg.data.resize(size);
+  for (size_t i = 0; i < size; ++i) {
+    msg.data[i] = uint8_t(data[i]);
+  }
+
+  msg.layout.data_offset = 0;
+  msg.layout.dim.resize(1);
+  msg.layout.dim[0].label = "raw";
+  msg.layout.dim[0].size = msg.data.size();
+  msg.layout.dim[0].stride = 1;
+
+  static ros::Publisher publisher =
+    nh->advertise<std_msgs::UInt8MultiArray>("rtcm_out", kROSQueueSize);
+  publisher.publish(msg);
 }
 
 bool HpgRefProduct::setTimeMode() {
@@ -1651,6 +1676,16 @@ void HpgRovProduct::subscribe() {
   // Subscribe to Nav Relative Position NED messages (also updates diagnostics)
   gps.subscribe<ublox_msgs::NavRELPOSNED>(boost::bind(
      &HpgRovProduct::callbackNavRelPosNed, this, _1), kSubscribeRate);
+
+  // Incoming RTCM corrections
+  bool sub_rtcm;
+  nh->param("sub_rtcm", sub_rtcm, false);
+  if (sub_rtcm) {
+    std::string topic;
+    nh->param("rtcm_topic", topic, std::string("rtcm_in"));
+    sub_rtcm_ = nh->subscribe(topic, 10,
+                              &HpgRovProduct::rtcmMsgCallback, this);
+  }
 }
 
 void HpgRovProduct::initializeRosDiagnostics() {
@@ -1705,6 +1740,15 @@ void HpgRovProduct::callbackNavRelPosNed(const ublox_msgs::NavRELPOSNED &m) {
 
   last_rel_pos_ = m;
   updater->update();
+}
+
+void HpgRovProduct::rtcmMsgCallback(const std_msgs::UInt8MultiArray::ConstPtr& msg) {
+  std::vector<uint8_t> bytes(msg->data.size());
+  for (size_t i = 0; i < msg->data.size(); ++i) {
+    bytes[i] = msg->data[i];
+  }
+
+  gps.send(bytes.data(), bytes.size());
 }
 
 //

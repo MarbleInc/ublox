@@ -110,12 +110,14 @@ The `ublox_gps` node supports the following parameters for all products and firm
 * `arp/position`: Antenna Reference Point position in [m] or [deg]. Required if `tmode3` is set to fixed. 
 * `arp/position_hp`: Antenna Reference Point High Precision position in [0.1 mm] or [deg * 1e-9]. Required if tmode3 is set to fixed. 
 * `arp/acc`: Fixed position accuracy in [m]. Required if `tmode3` is set to fixed. 
+* `nav/rtcm`: Raw RTCM corrections
 * `sv_in/reset`: Whether or not to reset the survey in upon initialization. If false, it will only reset if the TMODE is disabled. Defaults to true.
 * `sv_in/min_dur`: The minimum Survey-In Duration time in seconds. Required tmode3 is set to survey in.
 * `sv_in/acc_lim`: The minimum accuracy level of the survey in position in meters. Required `tmode3` is set to survey in.
 
 ### For HPG Rover devices:
 * `dgnss_mode`: The Differential GNSS mode. Defaults to RTK FIXED. See `CfgDGNSS` message for constants.
+* `sub_rtcm`: Subscribe to incoming RTCM corrections to send to the device
 
 ### For TIM devices:
 * `tim_tm2`: Enable this message for GPS time-stamps everytime an external interrupt signal is received.

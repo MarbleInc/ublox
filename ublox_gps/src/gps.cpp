@@ -524,6 +524,10 @@ bool Gps::setUseAdr(bool enable) {
   return configure(msg);
 }
 
+bool Gps::send(const unsigned char* data, const unsigned int size) {
+    return worker_->send(data, size);
+}
+
 bool Gps::poll(uint8_t class_id, uint8_t message_id,
                const std::vector<uint8_t>& payload) {
   if (!worker_) return false;
@@ -535,6 +539,10 @@ bool Gps::poll(uint8_t class_id, uint8_t message_id,
   worker_->send(out.data(), writer.end() - out.data());
 
   return true;
+}
+
+void Gps::subscribeRtcm(const CallbackHandlers::RtcmCallback& callback) {
+    callbacks_.setRtcmCallback(callback);
 }
 
 bool Gps::waitForAcknowledge(const boost::posix_time::time_duration& timeout,
